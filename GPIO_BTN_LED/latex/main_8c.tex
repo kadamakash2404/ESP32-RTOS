@@ -1,0 +1,129 @@
+\doxysection{main/\+main.c File Reference}
+\hypertarget{main_8c}{}\label{main_8c}\index{main/main.c@{main/main.c}}
+
+
+GPIO interrupt and LED control example.  
+
+
+{\ttfamily \+\#include $<$stdio.\+h$>$}\newline
+{\ttfamily \+\#include $<$stdint.\+h$>$}\newline
+{\ttfamily \+\#include "{}esp\+\_\+system.\+h"{}}\newline
+{\ttfamily \+\#include "{}esp\+\_\+log.\+h"{}}\newline
+{\ttfamily \+\#include "{}esp\+\_\+err.\+h"{}}\newline
+{\ttfamily \+\#include "{}freertos/\+\+Free\+RTOS.\+h"{}}\newline
+{\ttfamily \+\#include "{}freertos/\+task.\+h"{}}\newline
+{\ttfamily \+\#include "{}driver/\+gpio.\+h"{}}\newline
+\doxysubsubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\Hypertarget{main_8c_af8baf7d9859733667317e58c0ff707d1}\label{main_8c_af8baf7d9859733667317e58c0ff707d1} 
+\+\#define {\bfseries ESP\+\_\+\+INTR\+\_\+\+FLAG\+\_\+\+DEFAULT}~0
+\item 
+\Hypertarget{main_8c_a44da34ec984f538da8d4f6b160b3ee29}\label{main_8c_a44da34ec984f538da8d4f6b160b3ee29} 
+\+\#define {\bfseries Push\+\_\+\+Btn\+\_\+\+Pin}~36
+\item 
+\Hypertarget{main_8c_a51002063f7ce118faccc1e69646e9efb}\label{main_8c_a51002063f7ce118faccc1e69646e9efb} 
+\+\#define {\bfseries Led\+\_\+\+Pin}~26
+\end{DoxyCompactItemize}
+\doxysubsubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static void IRAM\+\_\+\+ATTR \doxymbox{\hyperlink{main_8c_a4041b0adf4b519d3b30a8a566b742111}{gpio\+\_\+isr\+\_\+handler}} (void \texorpdfstring{$\ast$}{*}arg)
+\begin{DoxyCompactList}\small\item\em GPIO interrupt service routine. \end{DoxyCompactList}\item 
+esp\+\_\+err\+\_\+t \doxymbox{\hyperlink{main_8c_a6f25c90d2931b1c8a303075cf523bf4e}{Initalize\+\_\+\+Peripherals}} ()
+\begin{DoxyCompactList}\small\item\em Initialize GPIO peripherals. \end{DoxyCompactList}\item 
+static void \doxymbox{\hyperlink{main_8c_a5627193ab97924fc10099342d5ccbaf3}{LED\+\_\+\+Task}} (void \texorpdfstring{$\ast$}{*}arg)
+\begin{DoxyCompactList}\small\item\em LED control task. \end{DoxyCompactList}\item 
+void \doxymbox{\hyperlink{main_8c_a630544a7f0a2cc40d8a7fefab7e2fe70}{app\+\_\+main}} (void)
+\begin{DoxyCompactList}\small\item\em Application entry point. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+\Hypertarget{main_8c_a14c0e13cc3292f8c44dfefae8b3b79f4}\label{main_8c_a14c0e13cc3292f8c44dfefae8b3b79f4} 
+Task\+Handle\+\_\+t {\bfseries LEDTask\+Handle} = NULL
+\begin{DoxyCompactList}\small\item\em Handle for LED task. \end{DoxyCompactList}\item 
+\Hypertarget{main_8c_a7255ca0747f1aa7ea4372a675ea15f1d}\label{main_8c_a7255ca0747f1aa7ea4372a675ea15f1d} 
+static volatile int {\bfseries Btn\+State}
+\begin{DoxyCompactList}\small\item\em Current button state (modified in ISR context). \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+GPIO interrupt and LED control example. 
+
+This example demonstrates:\+
+\begin{DoxyItemize}
+\item GPIO interrupt handling
+\item Free\+RTOS task notification from ISR
+\item LED toggling using task context 
+\end{DoxyItemize}
+
+\label{doc-func-members}
+\Hypertarget{main_8c_doc-func-members}
+\doxysubsection{Function Documentation}
+\Hypertarget{main_8c_a630544a7f0a2cc40d8a7fefab7e2fe70}\index{main.c@{main.c}!app\_main@{app\_main}}
+\index{app\_main@{app\_main}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{app\_main()}{app\_main()}}
+{\footnotesize\ttfamily \label{main_8c_a630544a7f0a2cc40d8a7fefab7e2fe70} 
+void app\+\_\+main (\begin{DoxyParamCaption}\item[{void}]{}{}\end{DoxyParamCaption})}
+
+
+
+Application entry point. 
+
+Creates LED task and initializes peripherals. \Hypertarget{main_8c_a4041b0adf4b519d3b30a8a566b742111}\index{main.c@{main.c}!gpio\_isr\_handler@{gpio\_isr\_handler}}
+\index{gpio\_isr\_handler@{gpio\_isr\_handler}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{gpio\_isr\_handler()}{gpio\_isr\_handler()}}
+{\footnotesize\ttfamily \label{main_8c_a4041b0adf4b519d3b30a8a566b742111} 
+void IRAM\+\_\+\+ATTR gpio\+\_\+isr\+\_\+handler (\begin{DoxyParamCaption}\item[{void \texorpdfstring{$\ast$}{*}}]{arg}{}\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+
+
+GPIO interrupt service routine. 
+
+This ISR sends a task notification to LED task when the push button interrupt occurs.
+
+
+\begin{DoxyParams}{Parameters}
+{\em arg} & Pointer to GPIO number (passed during ISR registration) \\
+\hline
+\end{DoxyParams}
+\Hypertarget{main_8c_a6f25c90d2931b1c8a303075cf523bf4e}\index{main.c@{main.c}!Initalize\_Peripherals@{Initalize\_Peripherals}}
+\index{Initalize\_Peripherals@{Initalize\_Peripherals}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{Initalize\_Peripherals()}{Initalize\_Peripherals()}}
+{\footnotesize\ttfamily \label{main_8c_a6f25c90d2931b1c8a303075cf523bf4e} 
+esp\+\_\+err\+\_\+t Initalize\+\_\+\+Peripherals (\begin{DoxyParamCaption}{}{}\end{DoxyParamCaption})}
+
+
+
+Initialize GPIO peripherals. 
+
+Configures:\+
+\begin{DoxyItemize}
+\item Push button GPIO as input with interrupt
+\item LED GPIO as output
+\end{DoxyItemize}
+
+\begin{DoxyReturn}{Returns}
+esp\+\_\+err\+\_\+t
+\begin{DoxyItemize}
+\item ESP\+\_\+\+OK on success
+\item Error code otherwise 
+\end{DoxyItemize}
+\end{DoxyReturn}
+\Hypertarget{main_8c_a5627193ab97924fc10099342d5ccbaf3}\index{main.c@{main.c}!LED\_Task@{LED\_Task}}
+\index{LED\_Task@{LED\_Task}!main.c@{main.c}}
+\doxysubsubsection{\texorpdfstring{LED\_Task()}{LED\_Task()}}
+{\footnotesize\ttfamily \label{main_8c_a5627193ab97924fc10099342d5ccbaf3} 
+void LED\+\_\+\+Task (\begin{DoxyParamCaption}\item[{void \texorpdfstring{$\ast$}{*}}]{arg}{}\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+
+
+LED control task. 
+
+Waits for notification from ISR. Toggles LED and updates button state.
+
+
+\begin{DoxyParams}{Parameters}
+{\em arg} & Task parameter (unused) \\
+\hline
+\end{DoxyParams}
