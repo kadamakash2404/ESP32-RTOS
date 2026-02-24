@@ -1,53 +1,163 @@
-| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-H2 | ESP32-H21 | ESP32-H4 | ESP32-P4 | ESP32-S2 | ESP32-S3 | Linux |
-| ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | --------- | -------- | -------- | -------- | -------- | ----- |
+📘 ESP32 GPIO Interrupt + FreeRTOS Task Notification Example
 
-# Hello World Example
+This project demonstrates GPIO interrupt handling and FreeRTOS task notification from ISR using the ESP-IDF on an ESP32.
 
-Starts a FreeRTOS task to print "Hello World".
+It implements a push button interrupt that notifies a task, which then toggles an LED.
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
+🚀 Features
 
-## How to use example
+GPIO interrupt configuration
 
-Follow detailed instructions provided specifically for this example.
+ISR written with IRAM_ATTR
 
-Select the instructions depending on Espressif chip installed on your development board:
+Task notification from ISR (vTaskNotifyGiveFromISR)
 
-- [ESP32 Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/stable/get-started/index.html)
-- [ESP32-S2 Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/get-started/index.html)
+LED control in task context
 
+Proper esp_err_t error handling
 
-## Example folder contents
+Doxygen-compatible documentation
 
-The project **hello_world** contains one source file in C language [hello_world_main.c](main/hello_world_main.c). The file is located in folder [main](main).
+🏗️ Project Structure
+hello_world/
+ ├── main/
+ │    └── main.c
+ ├── CMakeLists.txt
+ ├── sdkconfig
+ └── README.md
+🔧 Hardware Setup
+Component	GPIO
+Push Button	GPIO 36 (Input, Interrupt on Rising Edge)
+LED	GPIO 26 (Output)
 
-ESP-IDF projects are built using CMake. The project build configuration is contained in `CMakeLists.txt` files that provide set of directives and instructions describing the project's source files and targets (executable, library, or both).
+⚠️ GPIO 36 is input-only (correct for button use).
 
-Below is short explanation of remaining files in the project folder.
+🧠 How It Works
+1️⃣ Peripheral Initialization
 
-```
-├── CMakeLists.txt
-├── pytest_hello_world.py      Python script used for automated testing
-├── main
-│   ├── CMakeLists.txt
-│   └── hello_world_main.c
-└── README.md                  This is the file you are currently reading
-```
+Initalize_Peripherals() configures:
 
-For more information on structure and contents of ESP-IDF projects, please refer to Section [Build System](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html) of the ESP-IDF Programming Guide.
+GPIO 26 → Output (LED)
 
-## Troubleshooting
+GPIO 36 → Input with rising edge interrupt
 
-* Program upload failure
+Installs ISR service
 
-    * Hardware connection is not correct: run `idf.py -p PORT monitor`, and reboot your board to see if there are any output logs.
-    * The baud rate for downloading is too high: lower your baud rate in the `menuconfig` menu, and try again.
+Registers interrupt handler
 
-## Technical support and feedback
+2️⃣ Interrupt Service Routine
+static void IRAM_ATTR gpio_isr_handler(void* arg)
+{
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    vTaskNotifyGiveFromISR(LEDTaskHandle,&xHigherPriorityTaskWoken);
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+}
 
-Please use the following feedback channels:
+✔ Minimal ISR
+✔ No heavy processing
+✔ Only sends notification
 
-* For technical queries, go to the [esp32.com](https://esp32.com/) forum
-* For a feature request or bug report, create a [GitHub issue](https://github.com/espressif/esp-idf/issues)
+This follows best ISR design practice.
 
-We will get back to you as soon as possible.
+3️⃣ LED Task
+static void LED_Task(void* arg)
+{
+    while(1)
+    {
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        BtnState = ~BtnState;
+        gpio_set_level(Led_Pin,BtnState);
+    }
+}
+
+Blocks until notified
+
+Toggles LED
+
+Runs in task context (safe to call driver APIs)
+
+🔄 Execution Flow
+Button Press
+     ↓
+GPIO Interrupt
+     ↓
+ISR sends notification
+     ↓
+LED Task wakes up
+     ↓
+LED toggles
+
+This is the recommended architecture for ISR-to-task communication in FreeRTOS.
+
+📦 Build & Flash
+
+Make sure ESP-IDF is installed and environment is set.
+
+idf.py build
+idf.py flash
+idf.py monitor
+📖 Key FreeRTOS APIs Used
+
+vTaskNotifyGiveFromISR()
+
+ulTaskNotifyTake()
+
+xTaskCreate()
+
+portYIELD_FROM_ISR()
+
+Task notifications are faster and lighter than queues for ISR signaling.
+
+🛠️ Important Implementation Details
+✔ 64-bit GPIO Mask
+GPIO_config.pin_bit_mask = 1ULL << Led_Pin;
+
+pin_bit_mask is uint64_t, so 1ULL must be used.
+
+✔ Volatile Shared Variable
+static volatile int BtnState;
+
+Used because it is modified in ISR-triggered flow.
+
+✔ Error Handling
+ESP_ERROR_CHECK(Initalize_Peripherals());
+
+Ensures system halts on critical failure.
+
+📚 Generating Documentation (Doxygen)
+
+If Doxygen is installed:
+
+doxygen -g
+# configure Doxyfile (INPUT = main)
+doxygen Doxyfile
+
+Open:
+
+html/index.html
+🧪 Future Improvements
+
+Add software debounce
+
+Use gpio_get_level() instead of toggling
+
+Replace global state with safer abstraction
+
+Convert into reusable GPIO driver component
+
+🎯 Learning Goals Covered
+
+GPIO driver usage
+
+Interrupt handling on ESP32
+
+FreeRTOS task notifications
+
+ISR-safe API usage
+
+Embedded firmware documentation practice
+
+👨‍💻 Author
+
+Akash Kadam
+Embedded Firmware Developer
