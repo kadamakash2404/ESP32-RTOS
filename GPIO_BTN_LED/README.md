@@ -19,12 +19,14 @@ Proper esp_err_t error handling
 Doxygen-compatible documentation
 
 🏗️ Project Structure
+```
 hello_world/
  ├── main/
  │    └── main.c
  ├── CMakeLists.txt
  ├── sdkconfig
  └── README.md
+```
 🔧 Hardware Setup
 Component	GPIO
 Push Button	GPIO 36 (Input, Interrupt on Rising Edge)
