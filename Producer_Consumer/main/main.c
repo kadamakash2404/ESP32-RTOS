@@ -13,6 +13,16 @@
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
+#include "driver/ledc.h"
+#include "driver/gpio.h"
+
+#define LED_GPIO        26
+#define LEDC_TIMER      LEDC_TIMER_0
+#define LEDC_MODE       LEDC_LOW_SPEED_MODE
+#define LEDC_CHANNEL    LEDC_CHANNEL_0
+#define LEDC_DUTY_RES   LEDC_TIMER_12_BIT   // 8-bit resolution
+#define LEDC_FREQUENCY  5000               // 5 kHz
+
 
 #define ADC1_CHANNEL    ADC_CHANNEL_5
 #define ADC2_CHANNEL    ADC_CHANNEL_8
@@ -56,14 +66,44 @@ void consumer_task(void *arg)
     {
         if (xQueueReceive(adc_queue, &received_value, portMAX_DELAY))
         {
+            ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, received_value);
+            ledc_update_duty(LEDC_MODE, LEDC_CHANNEL);
             ESP_LOGI(TAG, "Consumed: %d", received_value);
         }
     }
 }
 
 
-void Init_ADC(void)
+
+void Init_Peripherals(void)
 {
+
+    // Configure LEDC Timer
+    ledc_timer_config_t ledc_timer = {
+        .speed_mode       = LEDC_MODE,
+        .duty_resolution  = LEDC_DUTY_RES,
+        .timer_num        = LEDC_TIMER,
+        .freq_hz          = LEDC_FREQUENCY,
+        .clk_cfg          = LEDC_AUTO_CLK
+    };
+
+    ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
+
+    // Configure LEDC Channel
+    ledc_channel_config_t ledc_channel = {
+        .gpio_num       = LED_GPIO,
+        .speed_mode     = LEDC_MODE,
+        .channel        = LEDC_CHANNEL,
+        .intr_type      = LEDC_INTR_DISABLE,
+        .timer_sel      = LEDC_TIMER,
+        .duty           = 0, // Start with LED off
+        .hpoint         = 0
+    };
+
+    ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
+
+
+
     // Configure ADC1
     adc_oneshot_unit_init_cfg_t init_config1 = {
         .unit_id = ADC1_UNIT,
@@ -92,7 +132,7 @@ void Init_ADC(void)
 
 void app_main(void)
 {
-    Init_ADC();
+    Init_Peripherals();
     adc_queue = xQueueCreate(10, sizeof(int));
 
     xTaskCreate(producer_task, "producer", 4096, NULL, 10, NULL);
