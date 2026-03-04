@@ -1,41 +1,120 @@
+/**
+ * @file main.c
+ * @brief FreeRTOS Event Group based Button & LED Control Example
+ *
+ * This application demonstrates:
+ * - GPIO interrupt handling
+ * - FreeRTOS Event Groups for inter-task signaling
+ * - Multi-task LED control architecture
+ * - Mutex-protected shared configuration
+ *
+ * Target MCU  : ESP32  
+ * Framework   : ESP-IDF  
+ * RTOS        : FreeRTOS  
+ *
+ * @author Akash
+ * @date 2026
+ */
+
+
+/*==================== Standard C Libraries ====================*/
 #include<stdio.h>
 #include<stdlib.h>
 
+/*==================== ESP-IDF core ====================*/
 #include "esp_system.h"
 #include "esp_log.h"
 #include "esp_err.h"
 
+/*==================== FreeRTOS ====================*/
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+/*==================== Drivers ====================*/
 #include "driver/gpio.h"
 
 
+
+
+/**
+ * @defgroup GPIO_PINS GPIO Pin Definitions
+ * @brief Hardware mapping for buttons and LEDs
+ * @{
+ */
+
+/** @brief GPIO connected to Push Button A */
 #define Push_BtnA_Pin  36
+
+/** @brief GPIO connected to Push Button B */
 #define Push_BtnB_Pin  39
+
+/** @brief GPIO connected to Push Button C */
 #define Push_BtnC_Pin  34
+
+/** @brief GPIO connected to Push Button D */
 #define Push_BtnD_Pin  35
 
+/** @brief GPIO connected to RED LED */
+#define RED_Led_Pin    26
+
+/** @brief GPIO connected to GREEN LED */
+#define GREEN_Led_Pin  27
+
+/** @} */
+
+
+
+/**
+ * @brief Button mask to pass to the GPIO confic structure
+ */
 #define ButtonMask      ((1ULL<<Push_BtnA_Pin) | (1ULL<<Push_BtnB_Pin) | (1ULL<<Push_BtnC_Pin) | (1ULL<<Push_BtnD_Pin))
 
-#define RED_Led_Pin  26
-#define GREEN_Led_Pin 27
 
-
+/**
+ * @brief Event Group bit mapping for button events
+ *
+ * Push_BtnA_Pin -> BIT_INPUT1  
+ * Push_BtnB_Pin -> BIT_INPUT2  
+ * Push_BtnC_Pin -> BIT_INPUT3  
+ * Push_BtnD_Pin -> BIT_INPUT4
+ */
 #define BIT_INPUT1 BIT0
 #define BIT_INPUT2 BIT1
 #define BIT_INPUT3 BIT2
 #define BIT_INPUT4 BIT3
 
+/**
+ * @brief FreeRTOS handle to initalize event group for button inputs
+ *  type is static so the scope is limited to this file only
+ */
 static EventGroupHandle_t gpio_event_group;
 
+/**
+ * @brief FreeRTOS task handle for red led task
+ * type is static so the scope is limited to this file only
+ */
 static TaskHandle_t RedLEDControlTaskHandle = NULL;
+
+/**
+ * @brief FreeRTOS task handle for green led 
+ * type is static so the scope is limited to this file only
+ */
 static TaskHandle_t GreenLEDControlTaskHandle = NULL;
+
+/**
+ * @brief FreeRTOS task handle for button task
+ */
 static TaskHandle_t BTNControlTaskHandle = NULL;
 
+/**
+ * @brief Semaphore declaration for led configurations
+ */
 static SemaphoreHandle_t config_mutex;
 
-
+/**
+ * @enum led_mode_t
+ * @brief Defines different LED operating modes
+ */
 typedef enum 
 {
     LED_MODE_OFF,
@@ -44,13 +123,20 @@ typedef enum
     LED_MODE_ALTER
 }led_mode_t;
 
+/**
+ * @struct led_control_t
+ * @brief Configuration structure for individual LED
+ */
 typedef struct 
 {
     led_mode_t mode;
     uint32_t periond_ms;
 }led_control_t;
 
-
+/**
+ * @struct system_led_config_t
+ * @brief Holds configuration for both RED and GREEN LEDs
+ */
 typedef struct
 {
     led_control_t RED_led;
@@ -71,7 +157,16 @@ static system_led_config_t current = {
     
 };
 
-
+/**
+ * @brief GPIO Interrupt Service Routine
+ *
+ * Triggered on button positive edge.
+ * Sets corresponding event bit in Event Group.
+ *
+ * @param arg GPIO number passed during ISR registration
+ *
+ * @note ISR runs in IRAM context
+ */
 static void IRAM_ATTR gpio_isr_handler(void* arg)
 {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
@@ -101,11 +196,23 @@ static void IRAM_ATTR gpio_isr_handler(void* arg)
         }
     }
 
-    if (xHigherPriorityTaskWoken) {
-    portYIELD_FROM_ISR();
-}
+    if (xHigherPriorityTaskWoken) 
+    {
+        portYIELD_FROM_ISR();
+    }
 }
 
+
+/**
+ * @brief Button Processing Task
+ *
+ * Waits for event bits from ISR and updates
+ * shared LED configuration accordingly.
+ *
+ * Uses mutex to protect shared structure.
+ *
+ * @param arg Unused
+ */
 void BTN_Control(void* arg)
 {
     const char* TAG = "BTN_Control";
@@ -161,7 +268,20 @@ void BTN_Control(void* arg)
 }
 
 
-
+/**
+ * @brief RED LED Control Task
+ *
+ * Periodically checks shared configuration
+ * and drives RED LED according to selected mode.
+ *
+ * Supports:
+ * - OFF
+ * - ON
+ * - BLINK
+ * - ALTERNATE
+ *
+ * @param arg Unused
+ */
 void RED_LED_Control(void* arg)
 {
     system_led_config_t copy;
@@ -206,6 +326,14 @@ void RED_LED_Control(void* arg)
 }
 
 
+/**
+ * @brief GREEN LED Control Task
+ *
+ * Controls GREEN LED behavior based on
+ * current system configuration.
+ *
+ * @param arg Unused
+ */
 void GREEN_LED_Control(void* arg)
 {
      system_led_config_t copy;
@@ -250,6 +378,14 @@ void GREEN_LED_Control(void* arg)
 }
 
 
+/**
+ * @brief Initializes GPIOs, ISR service and synchronization primitives
+ *
+ * - Configures LED pins as output
+ * - Configures Button pins as input with interrupt
+ * - Installs ISR service
+ * - Creates mutex
+ */
 void Init_Peripherales(void)
 {
     config_mutex = xSemaphoreCreateMutex();
@@ -277,7 +413,20 @@ void Init_Peripherales(void)
     ESP_ERROR_CHECK(gpio_isr_handler_add(Push_BtnD_Pin, gpio_isr_handler, (void*) Push_BtnD_Pin));
 }
 
-
+/**
+ * @brief Application entry point
+ *
+ * Creates:
+ * - Event group
+ * - Peripheral configuration
+ * - Button task
+ * - RED LED task
+ * - GREEN LED task
+ *
+ * Task Priority:
+ * - Button Task : 6
+ * - LED Tasks   : 5
+ */
 void app_main()
 {
     gpio_event_group = xEventGroupCreate();
