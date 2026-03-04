@@ -29,7 +29,8 @@
 
 static EventGroupHandle_t gpio_event_group;
 
-static TaskHandle_t LEDControlTaskHandle = NULL;
+static TaskHandle_t RedLEDControlTaskHandle = NULL;
+static TaskHandle_t GreenLEDControlTaskHandle = NULL;
 static TaskHandle_t BTNControlTaskHandle = NULL;
 
 static SemaphoreHandle_t config_mutex;
@@ -53,7 +54,7 @@ typedef struct
 typedef struct
 {
     led_control_t RED_led;
-    // led_control_t GREEN_led;
+    led_control_t GREEN_led;
 }system_led_config_t;
 
 
@@ -62,7 +63,12 @@ static system_led_config_t current = {
     .RED_led = {
         .mode = LED_MODE_OFF,
         .periond_ms = 1000
+    },
+    .GREEN_led = {
+        .mode = LED_MODE_OFF,
+        .periond_ms = 1000
     }
+    
 };
 
 
@@ -118,8 +124,8 @@ void BTN_Control(void* arg)
         {
             ESP_LOGI(TAG, "Button 1 Pressed");
             current.RED_led.mode = LED_MODE_ON;
-            // current.GREEN_led.mode = LED_MODE_BLINK;
-            // current.GREEN_led.periond_ms = 1000;
+            current.GREEN_led.mode = LED_MODE_BLINK;
+            current.GREEN_led.periond_ms = 1000;
         }
 
         if(bits & BIT_INPUT2)
@@ -127,31 +133,36 @@ void BTN_Control(void* arg)
             ESP_LOGI(TAG, "Button 2 Pressed");
             current.RED_led.mode = LED_MODE_BLINK;
             current.RED_led.periond_ms = 1000;
-            // current.GREEN_led.mode = LED_MODE_OFF;
+            current.GREEN_led.mode = LED_MODE_ON;
         }
 
         if(bits & BIT_INPUT3)
         {
             ESP_LOGI(TAG, "Button 3 Pressed");
             current.RED_led.mode = LED_MODE_BLINK;
-            // current.GREEN_led.mode = LED_MODE_BLINK;
-            current.RED_led.periond_ms = 500;
+            current.RED_led.periond_ms= 1000;
+            current.GREEN_led.mode = LED_MODE_BLINK;
+            current.GREEN_led.periond_ms = 200;
             
         }
 
         if(bits & BIT_INPUT4)
         {
             ESP_LOGI(TAG, "Button 4 Pressed");
-            current.RED_led.mode = LED_MODE_OFF;
-            // current.RED_led.periond_ms = 500;
-            // current.GREEN_led.mode = LED_MODE_BLINK;
-            // current.GREEN_led.periond_ms = 500;
+            current.RED_led.mode = LED_MODE_BLINK;
+            current.RED_led.periond_ms = 500;
+            current.GREEN_led.mode = LED_MODE_BLINK;
+            current.GREEN_led.periond_ms = 500;
+            current.RED_led.mode = LED_MODE_ALTER;
+            current.GREEN_led.mode = LED_MODE_ALTER;
         }
         xSemaphoreGive(config_mutex);
     }
 }
 
-void LED_Control(void* arg)
+
+
+void RED_LED_Control(void* arg)
 {
     system_led_config_t copy;
     uint8_t toggle = 0;
@@ -180,8 +191,58 @@ void LED_Control(void* arg)
                 vTaskDelay(pdMS_TO_TICKS(copy.RED_led.periond_ms/2));
                 break;
 
+            case LED_MODE_ALTER:
+                toggle = !toggle;
+                gpio_set_level(RED_Led_Pin,toggle);
+                gpio_set_level(GREEN_Led_Pin,!toggle);
+                vTaskDelay(pdMS_TO_TICKS(copy.RED_led.periond_ms/2));
+
             default:
                 vTaskDelay(pdMS_TO_TICKS(50));
+                break;
+        }
+        vTaskDelay(pdMS_TO_TICKS(5));
+    }
+}
+
+
+void GREEN_LED_Control(void* arg)
+{
+     system_led_config_t copy;
+    uint8_t toggle = 0;
+
+    while(1)
+    {
+        xSemaphoreTake(config_mutex,portMAX_DELAY);
+        copy = current;
+        xSemaphoreGive(config_mutex);
+
+        switch(copy.GREEN_led.mode)
+        {
+            case LED_MODE_OFF:
+                gpio_set_level(GREEN_Led_Pin,0);
+                vTaskDelay(pdMS_TO_TICKS(50));
+                break;
+
+            case LED_MODE_ON:
+                gpio_set_level(GREEN_Led_Pin,1);
+                vTaskDelay(pdMS_TO_TICKS(50));
+                break;
+
+            case LED_MODE_BLINK:
+                toggle = !toggle;
+                gpio_set_level(GREEN_Led_Pin,toggle);
+                vTaskDelay(pdMS_TO_TICKS(copy.GREEN_led.periond_ms/2));
+                break;
+
+            case LED_MODE_ALTER:
+            {
+                vTaskDelay(pdMS_TO_TICKS(50));
+                break;
+            }
+
+            default:
+                // vTaskDelay(pdMS_TO_TICKS(50));
                 break;
         }
         vTaskDelay(pdMS_TO_TICKS(5));
@@ -223,7 +284,8 @@ void app_main()
 
     Init_Peripherales();
 
-    xTaskCreate(BTN_Control,"BTN control task",4096,NULL,5,&BTNControlTaskHandle);
-    xTaskCreate(LED_Control,"LED control task",4096,NULL,5,&LEDControlTaskHandle);
+    xTaskCreate(BTN_Control,"BTN control task",4096,NULL,6,&BTNControlTaskHandle);
+    xTaskCreate(RED_LED_Control," RED LED control task",4096,NULL,5,&RedLEDControlTaskHandle);
+    xTaskCreate(GREEN_LED_Control," GREEN LED control task",4096,NULL,5,&GreenLEDControlTaskHandle);
 
 }
