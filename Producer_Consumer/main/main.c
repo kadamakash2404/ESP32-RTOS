@@ -1,4 +1,18 @@
 
+/**
+ * @file main.c
+ * @brief Implementatoin of producer consumer pattern with RTOS 
+ *
+ * This file initializes system components,
+ * configures peripherals, and starts FreeRTOS tasks.
+ *
+ * Target: ESP32
+ * Framework: ESP-IDF
+ *
+ * @author Akash
+ * @date 2026
+ */
+
 #include<stdio.h>
 #include<stdint.h>
 
@@ -16,6 +30,9 @@
 #include "driver/ledc.h"
 #include "driver/gpio.h"
 
+/**
+    @brief system configuration parameters 
+*/
 #define LED_GPIO        26
 #define LEDC_TIMER      LEDC_TIMER_0
 #define LEDC_MODE       LEDC_LOW_SPEED_MODE
@@ -32,6 +49,9 @@
 #define ADC_ATTEN       ADC_ATTEN_DB_11
 #define ADC_BITWIDTH    ADC_BITWIDTH_DEFAULT
 
+/**
+    @brief adc task handle
+*/
 QueueHandle_t adc_queue;
 
 static adc_oneshot_unit_handle_t adc1_handle;
@@ -39,7 +59,20 @@ static adc_oneshot_unit_handle_t adc2_handle;
 
 static const char *TAG = "ADC_DUAL";
 
-
+/**
+ * @brief Producer Task
+ *
+ * This task reads ADC value and sends to queue every 500ms.
+ *
+ * Task Properties:
+ * - Priority: 10
+ * - Stack Size: 4096 bytes
+ * - Core Affinity: Core 0
+ *
+ * @param pvParameters Task input parameter (unused)
+ *
+ * @note This task runs indefinitely.
+ */
 void producer_task(void *arg)
 {
     int adc_value = 0;
@@ -57,7 +90,20 @@ void producer_task(void *arg)
     }
 }
 
-
+/**
+ * @brief consumer Task
+ *
+ * This task will adjust duty cycle of ouput led based on ADC data received on queue
+ *
+ * Task Properties:
+ * - Priority: 5
+ * - Stack Size: 4096 bytes
+ * - Core Affinity: Core 0
+ *
+ * @param pvParameters Task input parameter (unused)
+ *
+ * @note This task runs indefinitely.
+ */
 void consumer_task(void *arg)
 {
     int received_value;
@@ -73,7 +119,8 @@ void consumer_task(void *arg)
     }
 }
 
-
+/*Funtion to intalize ADC and LED 
+ */
 
 void Init_Peripherals(void)
 {
@@ -129,7 +176,9 @@ void Init_Peripherals(void)
     ESP_ERROR_CHECK(adc_oneshot_config_channel(adc2_handle, ADC2_CHANNEL, &config2));
 }
  
-
+/**
+ *  @brief App main funciton entry point of application
+ */
 void app_main(void)
 {
     Init_Peripherals();
